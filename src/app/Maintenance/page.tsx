@@ -686,7 +686,8 @@ export default function MaintenancePage() {
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
-  const searchRef = useRef<NodeJS.Timeout>();
+  // ✅ CORRECTION : type | null avec valeur initiale null
+  const searchRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type }); setTimeout(() => setToast(null), 3500);
@@ -732,9 +733,11 @@ export default function MaintenancePage() {
   }, []);
 
   useEffect(() => {
-    clearTimeout(searchRef.current);
+    if (searchRef.current) clearTimeout(searchRef.current);
     searchRef.current = setTimeout(() => { setPage(1); fetchMain(1); }, 300);
-    return () => clearTimeout(searchRef.current);
+    return () => {
+      if (searchRef.current) clearTimeout(searchRef.current);
+    };
   }, [search, filterStatut, filterType]);
 
   useEffect(() => { fetchMain(page); }, [page]);

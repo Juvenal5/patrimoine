@@ -41,14 +41,14 @@ type SortDir = "asc" | "desc";
 // ─── Action config ────────────────────────────────────────────────────────────
 
 const ACTION_META: Record<string, { label: string; color: string; bg: string; icon: string }> = {
-  CREATE:    { label:"Création",     color:"#10b981", bg:"rgba(16,185,129,0.12)",  icon:"✦" },
-  UPDATE:    { label:"Modification", color:"#38bdf8", bg:"rgba(14,165,233,0.12)",  icon:"✎" },
-  DELETE:    { label:"Suppression",  color:"#f87171", bg:"rgba(239,68,68,0.12)",   icon:"✕" },
-  AFFECTATION:{ label:"Affectation", color:"#a78bfa", bg:"rgba(139,92,246,0.12)",  icon:"→" },
-  RETOUR:    { label:"Retour",       color:"#10b981", bg:"rgba(16,185,129,0.12)",  icon:"↩" },
-  LOGIN:     { label:"Connexion",    color:"#fbbf24", bg:"rgba(245,158,11,0.12)",  icon:"⌁" },
-  EXPORT:    { label:"Export",       color:"#94a3b8", bg:"rgba(100,116,139,0.12)", icon:"↓" },
-  IMPORT:    { label:"Import",       color:"#94a3b8", bg:"rgba(100,116,139,0.12)", icon:"↑" },
+  CREATE:      { label:"Création",     color:"#10b981", bg:"rgba(16,185,129,0.12)",  icon:"✦" },
+  UPDATE:      { label:"Modification", color:"#38bdf8", bg:"rgba(14,165,233,0.12)",  icon:"✎" },
+  DELETE:      { label:"Suppression",  color:"#f87171", bg:"rgba(239,68,68,0.12)",   icon:"✕" },
+  AFFECTATION: { label:"Affectation",  color:"#a78bfa", bg:"rgba(139,92,246,0.12)",  icon:"→" },
+  RETOUR:      { label:"Retour",       color:"#10b981", bg:"rgba(16,185,129,0.12)",  icon:"↩" },
+  LOGIN:       { label:"Connexion",    color:"#fbbf24", bg:"rgba(245,158,11,0.12)",  icon:"⌁" },
+  EXPORT:      { label:"Export",       color:"#94a3b8", bg:"rgba(100,116,139,0.12)", icon:"↓" },
+  IMPORT:      { label:"Import",       color:"#94a3b8", bg:"rgba(100,116,139,0.12)", icon:"↑" },
 };
 
 const ENTITE_META: Record<string, { label: string; icon: string }> = {
@@ -426,7 +426,8 @@ export default function HistoriquePage() {
   const [showFilters,   setShowFilters]   = useState(false);
   const [toast,         setToast]         = useState<{msg:string;type:"success"|"error"}|null>(null);
 
-  const searchRef = useRef<NodeJS.Timeout>();
+  // ✅ CORRECTION : type | null avec valeur initiale null
+  const searchRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToast = useCallback((msg: string, type: "success"|"error" = "success") => {
     setToast({ msg, type });
@@ -464,13 +465,16 @@ export default function HistoriquePage() {
     }
   }, [page, sortDir, search, filterAction, filterEntite, filterUser, dateFrom, dateTo, showToast]);
 
+  // ✅ CORRECTION : guards null sur clearTimeout
   useEffect(() => {
-    clearTimeout(searchRef.current);
+    if (searchRef.current) clearTimeout(searchRef.current);
     searchRef.current = setTimeout(() => {
       setPage(1);
       fetchHistory(1);
     }, 300);
-    return () => clearTimeout(searchRef.current);
+    return () => {
+      if (searchRef.current) clearTimeout(searchRef.current);
+    };
   }, [search, filterAction, filterEntite, filterUser, dateFrom, dateTo, sortDir]);
 
   useEffect(() => { fetchHistory(page); }, [page]);
@@ -578,10 +582,10 @@ export default function HistoriquePage() {
       {/* ── Global stat chips ── */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label:"Total entrées",  value:total,                           accent:"#38bdf8" },
-          { label:"Actions uniques", value:apiStats.actions.length,        accent:"#10b981" },
-          { label:"Entités tracées", value:apiStats.entites.length,        accent:"#8b5cf6" },
-          { label:"Page actuelle",   value:`${page} / ${totalPages}`,      accent:"#f97316" },
+          { label:"Total entrées",   value:total,                      accent:"#38bdf8" },
+          { label:"Actions uniques", value:apiStats.actions.length,    accent:"#10b981" },
+          { label:"Entités tracées", value:apiStats.entites.length,    accent:"#8b5cf6" },
+          { label:"Page actuelle",   value:`${page} / ${totalPages}`,  accent:"#f97316" },
         ].map(s => (
           <div key={s.label} className="rounded-2xl px-5 py-4"
             style={{ background:"#0f1824", border:"1px solid rgba(255,255,255,0.06)" }}>
@@ -820,8 +824,8 @@ export default function HistoriquePage() {
 
             {Array.from({ length: Math.min(7, totalPages) }, (_, i) => {
               let p: number;
-              if (totalPages <= 7) { p = i + 1; }
-              else if (page <= 4)  { p = i + 1; if (p > 5) p = p === 6 ? totalPages - 1 : totalPages; }
+              if (totalPages <= 7)          { p = i + 1; }
+              else if (page <= 4)           { p = i + 1; if (p > 5) p = p === 6 ? totalPages - 1 : totalPages; }
               else if (page >= totalPages - 3) { p = totalPages - 6 + i; }
               else { p = [1, page - 2, page - 1, page, page + 1, page + 2, totalPages][i]; }
               return (
@@ -851,7 +855,6 @@ export default function HistoriquePage() {
     </div>
   );
 }
-
 
 
 
