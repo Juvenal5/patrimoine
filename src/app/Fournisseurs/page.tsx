@@ -25,35 +25,35 @@ interface BienLight {
 }
 
 interface MaintenanceLight {
-  id:       string;
-  statut:   string | null;
-  cout:     number | null;
-  type:     string | null;
+  id:        string;
+  statut:    string | null;
+  cout:      number | null;
+  type:      string | null;
   dateDebut: string | null;
   dateFin:   string | null;
 }
 
 interface Fournisseur {
-  id:          string;
-  nom:         string;
-  email:       string | null;
-  telephone:   string | null;
-  adresse:     string | null;
-  type:        string | null;
+  id:           string;
+  nom:          string;
+  email:        string | null;
+  telephone:    string | null;
+  adresse:      string | null;
+  type:         string | null;
   contratDebut: string | null;
   contratFin:   string | null;
-  createdAt:   string;
-  stats:       FournisseurStats;
-  biens:       BienLight[];
+  createdAt:    string;
+  stats:        FournisseurStats;
+  biens:        BienLight[];
   maintenances: MaintenanceLight[];
 }
 
 interface FormData {
-  nom:         string;
-  email:       string;
-  telephone:   string;
-  adresse:     string;
-  type:        string;
+  nom:          string;
+  email:        string;
+  telephone:    string;
+  adresse:      string;
+  type:         string;
   contratDebut: string;
   contratFin:   string;
 }
@@ -78,6 +78,37 @@ const CAT_ICONS: Record<string, string> = {
   Informatique:"💻", Mobilier:"🪑", Véhicule:"🚗", Équipement:"⚙️",
   Électroménager:"🔌", Télécommunication:"📡", Immobilier:"🏢", Autre:"📦",
 };
+
+// ─── ✅ FIX : Fallback stats vide pour les fournisseurs dont l'API
+//     ne renvoie pas de champ `stats` (ou le renvoie incomplet).
+//     Toutes les propriétés sont initialisées à 0 / false pour éviter
+//     les TypeError "Cannot read properties of undefined".
+const DEFAULT_STATS: FournisseurStats = {
+  totalBiens:          0,
+  totalMaintenances:   0,
+  coutMaintenances:    0,
+  valeurBiens:         0,
+  maintenancesActives: 0,
+  contratExpire:       false,
+  contratBientotFin:   false,
+};
+
+/** Normalise un fournisseur brut reçu de l'API en s'assurant que stats existe. */
+function normalizeFournisseur(raw: Partial<Fournisseur> & { id: string; nom: string; createdAt: string }): Fournisseur {
+  return {
+    ...raw,
+    email:        raw.email        ?? null,
+    telephone:    raw.telephone    ?? null,
+    adresse:      raw.adresse      ?? null,
+    type:         raw.type         ?? null,
+    contratDebut: raw.contratDebut ?? null,
+    contratFin:   raw.contratFin   ?? null,
+    // Fusionner avec les valeurs par défaut pour éviter les undefined partiels
+    stats: { ...DEFAULT_STATS, ...(raw.stats ?? {}) },
+    biens:        Array.isArray(raw.biens)        ? raw.biens        : [],
+    maintenances: Array.isArray(raw.maintenances) ? raw.maintenances : [],
+  } as Fournisseur;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -135,9 +166,7 @@ function ContratBadge({ contratFin }: { contratFin: string | null }) {
   const days   = daysUntil(contratFin);
   const expire = days < 0;
   const soon   = days >= 0 && days < 30;
-
   if (!expire && !soon) return null;
-
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold"
       style={{ background: expire ? "rgba(239,68,68,0.15)" : "rgba(245,158,11,0.15)", color: expire ? "#f87171" : "#fbbf24" }}>
@@ -166,11 +195,10 @@ function DetailPanel({ f, color, onClose, onEdit }: {
       <div className="fixed right-0 top-0 h-full z-50 flex flex-col overflow-hidden"
         style={{ width:460, background:"#0a1120", borderLeft:"1px solid rgba(255,255,255,0.07)", boxShadow:"-20px 0 60px rgba(0,0,0,0.5)" }}>
 
-        {/* Header */}
         <div className="px-5 py-4 shrink-0" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-13 h-13 w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0"
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0"
                 style={{ background:`${color}20`, color, border:`1px solid ${color}30` }}>
                 {initials(f.nom)}
               </div>
@@ -196,14 +224,13 @@ function DetailPanel({ f, color, onClose, onEdit }: {
           <ContratBadge contratFin={f.contratFin} />
         </div>
 
-        {/* Stats strip */}
         <div className="grid grid-cols-4 mx-5 my-4 rounded-xl overflow-hidden shrink-0"
           style={{ border:`1px solid ${color}25`, background:`${color}08` }}>
           {[
-            { label:"Biens",    value:f.stats.totalBiens,        accent:color    },
-            { label:"Maint.",   value:f.stats.totalMaintenances, accent:"#f97316" },
-            { label:"Actives",  value:f.stats.maintenancesActives, accent:"#38bdf8" },
-            { label:"Coût",     value:f.stats.coutMaintenances > 0 ? Math.round(f.stats.coutMaintenances/1000)+"k" : "0", accent:"#10b981" },
+            { label:"Biens",   value:f.stats.totalBiens,          accent:color     },
+            { label:"Maint.",  value:f.stats.totalMaintenances,   accent:"#f97316" },
+            { label:"Actives", value:f.stats.maintenancesActives, accent:"#38bdf8" },
+            { label:"Coût",    value:f.stats.coutMaintenances > 0 ? Math.round(f.stats.coutMaintenances/1000)+"k" : "0", accent:"#10b981" },
           ].map(({ label, value, accent }) => (
             <div key={label} className="text-center px-2 py-3">
               <p className="text-base font-bold leading-none" style={{ color:accent }}>{value}</p>
@@ -213,8 +240,6 @@ function DetailPanel({ f, color, onClose, onEdit }: {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-5 space-y-5">
-
-          {/* Coordonnées */}
           <div>
             <p className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold mb-3">Coordonnées</p>
             <div className="rounded-xl overflow-hidden" style={{ border:"1px solid rgba(255,255,255,0.06)" }}>
@@ -233,14 +258,13 @@ function DetailPanel({ f, color, onClose, onEdit }: {
             </div>
           </div>
 
-          {/* Contrat */}
           {(f.contratDebut || f.contratFin) && (
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold mb-3">Contrat</p>
               <div className="rounded-xl overflow-hidden" style={{ border:"1px solid rgba(255,255,255,0.06)" }}>
                 {[
-                  ["Début",      fmtDate(f.contratDebut)],
-                  ["Fin",        fmtDate(f.contratFin)],
+                  ["Début",       fmtDate(f.contratDebut)],
+                  ["Fin",         fmtDate(f.contratFin)],
                   ["Durée rest.", f.contratFin && daysUntil(f.contratFin) > 0 ? `${daysUntil(f.contratFin)} jours` : f.contratFin ? "Expiré" : "—"],
                 ].map(([k,v],i) => (
                   <div key={k} className="flex justify-between px-4 py-2.5"
@@ -253,7 +277,6 @@ function DetailPanel({ f, color, onClose, onEdit }: {
             </div>
           )}
 
-          {/* Valeur */}
           <div className="rounded-xl px-4 py-3 flex items-center justify-between"
             style={{ background:"rgba(14,165,233,0.07)", border:"1px solid rgba(14,165,233,0.15)" }}>
             <div>
@@ -266,7 +289,6 @@ function DetailPanel({ f, color, onClose, onEdit }: {
             </div>
           </div>
 
-          {/* Biens fournis */}
           {f.biens.length > 0 && (
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold mb-3">
@@ -276,7 +298,7 @@ function DetailPanel({ f, color, onClose, onEdit }: {
                 {f.biens.slice(0, 6).map((b, i) => (
                   <div key={b.id} className="flex items-center gap-3 px-4 py-2.5"
                     style={{ borderBottom:i<Math.min(f.biens.length,6)-1?"1px solid rgba(255,255,255,0.04)":"none", background:i%2===0?"rgba(255,255,255,0.01)":"transparent" }}>
-                    <span className="text-base shrink-0">{CAT_ICONS[b.categorie||""]??"📦"}</span>
+                    <span className="text-base shrink-0">{CAT_ICONS[b.categorie||""] ?? "📦"}</span>
                     <div className="flex-1 min-w-0">
                       <p className="text-[12px] font-medium text-white truncate">{b.nom}</p>
                       <p className="text-[10px] font-mono text-slate-600">{b.codeInventaire}</p>
@@ -299,7 +321,6 @@ function DetailPanel({ f, color, onClose, onEdit }: {
             </div>
           )}
 
-          {/* Maintenances récentes */}
           {f.maintenances.length > 0 && (
             <div>
               <p className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold mb-3">
@@ -363,7 +384,7 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
 
-  const set = (k: keyof FormData, v: string) => setForm(p => ({ ...p, [k]: v }));
+  const set   = (k: keyof FormData, v: string) => setForm(p => ({ ...p, [k]: v }));
   const valid = form.nom.trim() !== "";
 
   return (
@@ -372,7 +393,6 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
       <div className="fixed right-0 top-0 h-full z-50 flex flex-col"
         style={{ width:500, background:"linear-gradient(180deg,#0f1824 0%,#0a1120 100%)", borderLeft:"1px solid rgba(255,255,255,0.07)", boxShadow:"-24px 0 80px rgba(0,0,0,0.6)" }}>
 
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 shrink-0" style={{ borderBottom:"1px solid rgba(255,255,255,0.06)" }}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
@@ -387,12 +407,10 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
           <button onClick={onClose} className="p-2 rounded-xl text-slate-600 hover:text-white hover:bg-white/5 transition-all"><Ico.Close /></button>
         </div>
 
-        {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
           <Field label="Nom du fournisseur" required>
             <input className={iBase} placeholder="ex. Société Informatique CI" value={form.nom} onChange={e => set("nom", e.target.value)} autoFocus />
           </Field>
-
           <Field label="Type / Spécialité">
             <select className={iBase+" appearance-none cursor-pointer"} value={form.type} onChange={e => set("type", e.target.value)}>
               <option value="">— Sélectionner un type —</option>
@@ -401,7 +419,6 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
               ))}
             </select>
           </Field>
-
           <div className="grid grid-cols-2 gap-3">
             <Field label="Email">
               <input type="email" className={iBase} placeholder="contact@fournisseur.ci" value={form.email} onChange={e => set("email", e.target.value)} />
@@ -410,11 +427,9 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
               <input type="tel" className={iBase} placeholder="+225 0700000000" value={form.telephone} onChange={e => set("telephone", e.target.value)} />
             </Field>
           </div>
-
           <Field label="Adresse">
             <textarea className={iBase+" resize-none"} rows={2} placeholder="Adresse complète…" value={form.adresse} onChange={e => set("adresse", e.target.value)} />
           </Field>
-
           <div className="pt-2" style={{ borderTop:"1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-[10px] uppercase tracking-wider text-slate-600 font-semibold mb-3">Informations contractuelles</p>
             <div className="grid grid-cols-2 gap-3">
@@ -426,8 +441,6 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
               </Field>
             </div>
           </div>
-
-          {/* Preview */}
           {form.nom.trim() && (
             <div className="rounded-xl p-4" style={{ background:"rgba(14,165,233,0.05)", border:"1px solid rgba(14,165,233,0.12)" }}>
               <p className="text-[11px] font-semibold text-sky-400 uppercase tracking-wider mb-3">Aperçu</p>
@@ -453,7 +466,6 @@ function FournDrawer({ mode, initial, onClose, onSave, saving }: {
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between px-6 py-4 gap-3 shrink-0" style={{ borderTop:"1px solid rgba(255,255,255,0.06)" }}>
           <button onClick={onClose} className="px-5 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:text-white transition-all hover:bg-white/5">Annuler</button>
           <button onClick={() => valid && onSave(form)} disabled={!valid || saving}
@@ -489,7 +501,7 @@ function DeleteModal({ f, onClose, onConfirm, loading }: {
         {hasBiens ? (
           <div className="rounded-xl px-4 py-3 text-[12px]"
             style={{ background:"rgba(249,115,22,0.08)", border:"1px solid rgba(249,115,22,0.2)", color:"#fb923c" }}>
-            ⚠ Ce fournisseur a <strong>{f.stats.totalBiens} bien(s)</strong> associé(s). Réaffectez-les d'abord.
+            ⚠ Ce fournisseur a <strong>{f.stats.totalBiens} bien(s)</strong> associé(s). Réaffectez-les d&apos;abord.
           </div>
         ) : (
           <p className="text-sm text-slate-400">
@@ -566,29 +578,34 @@ export default function FournisseursPage() {
       const res = await fetch(`/api/fournisseurs?${params}`);
       if (!res.ok) throw new Error("Erreur de chargement");
       const data = await res.json();
-      setFournisseurs(Array.isArray(data) ? data : []);
-    } catch (err:any) { showToast(err.message,"error"); }
-    finally { setLoading(false); }
-  },[search,filterType,showToast]);
+      // ✅ FIX : normaliser chaque fournisseur pour garantir que `stats` existe
+      const arr = Array.isArray(data) ? data : [];
+      setFournisseurs(arr.map(normalizeFournisseur));
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Erreur réseau", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, filterType, showToast]);
 
-  useEffect(() => { fetchAll(); },[fetchAll]);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Keyboard
+  // Keyboard shortcuts
   useEffect(() => {
-    const h = (e:KeyboardEvent) => {
-      if (e.key==="Escape") {
+    const h = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
         if (detailF)      { setDetailF(null);  return; }
         if (formMode)     { setFormMode(null); setEditTarget(null); return; }
         if (deleteTarget) { setDeleteTarget(null); return; }
       }
-      if (e.key==="n"&&!formMode&&!deleteTarget&&!detailF) {
-        const tag=(e.target as HTMLElement).tagName;
-        if (tag!=="INPUT"&&tag!=="TEXTAREA"&&tag!=="SELECT") setFormMode("create");
+      if (e.key === "n" && !formMode && !deleteTarget && !detailF) {
+        const tag = (e.target as HTMLElement).tagName;
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") setFormMode("create");
       }
     };
-    window.addEventListener("keydown",h);
-    return () => window.removeEventListener("keydown",h);
-  },[detailF,formMode,deleteTarget]);
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [detailF, formMode, deleteTarget]);
 
   // ── Filter + Sort ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -597,80 +614,88 @@ export default function FournisseursPage() {
       const q = search.toLowerCase();
       return f.nom.toLowerCase().includes(q) || (f.email||"").toLowerCase().includes(q) || (f.type||"").toLowerCase().includes(q);
     });
-    return [...list].sort((a,b) => {
-      let av:any, bv:any;
-      if      (sortKey==="nom")               { av=a.nom.toLowerCase(); bv=b.nom.toLowerCase(); }
-      else if (sortKey==="totalBiens")         { av=a.stats.totalBiens;         bv=b.stats.totalBiens; }
-      else if (sortKey==="coutMaintenances")   { av=a.stats.coutMaintenances;   bv=b.stats.coutMaintenances; }
-      else if (sortKey==="contratFin")         { av=a.contratFin?new Date(a.contratFin).getTime():Infinity; bv=b.contratFin?new Date(b.contratFin).getTime():Infinity; }
-      if (av<bv) return sortDir==="asc"?-1:1;
-      if (av>bv) return sortDir==="asc"?1:-1;
+    return [...list].sort((a, b) => {
+      let av: number | string, bv: number | string;
+      if      (sortKey === "nom")             { av = a.nom.toLowerCase();              bv = b.nom.toLowerCase(); }
+      else if (sortKey === "totalBiens")       { av = a.stats.totalBiens;               bv = b.stats.totalBiens; }
+      else if (sortKey === "coutMaintenances") { av = a.stats.coutMaintenances;         bv = b.stats.coutMaintenances; }
+      else                                     { av = a.contratFin ? new Date(a.contratFin).getTime() : Infinity;
+                                                 bv = b.contratFin ? new Date(b.contratFin).getTime() : Infinity; }
+      if (av < bv) return sortDir === "asc" ? -1 : 1;
+      if (av > bv) return sortDir === "asc" ?  1 : -1;
       return 0;
     });
-  },[fournisseurs,search,sortKey,sortDir]);
+  }, [fournisseurs, search, sortKey, sortDir]);
 
   // ── CRUD ───────────────────────────────────────────────────────────────────
-  const handleSave = async (data:FormData) => {
+  const handleSave = async (data: FormData) => {
     setSaving(true);
     try {
       const payload = {
-        nom:         data.nom.trim(),
-        email:       data.email       || null,
-        telephone:   data.telephone   || null,
-        adresse:     data.adresse     || null,
-        type:        data.type        || null,
+        nom:          data.nom.trim(),
+        email:        data.email        || null,
+        telephone:    data.telephone    || null,
+        adresse:      data.adresse      || null,
+        type:         data.type         || null,
         contratDebut: data.contratDebut || null,
         contratFin:   data.contratFin   || null,
       };
-      if (formMode==="create") {
-        const res = await fetch("/api/fournisseurs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-        if (!res.ok){const e=await res.json();throw new Error(e.error||"Erreur serveur");}
+      if (formMode === "create") {
+        const res = await fetch("/api/fournisseurs", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Erreur serveur"); }
         showToast(`Fournisseur "${data.nom}" ajouté.`);
       } else if (editTarget) {
-        const res = await fetch(`/api/fournisseurs/${editTarget.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-        if (!res.ok){const e=await res.json();throw new Error(e.error||"Erreur serveur");}
+        const res = await fetch(`/api/fournisseurs/${editTarget.id}`, { method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload) });
+        if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Erreur serveur"); }
         showToast(`Fournisseur "${data.nom}" mis à jour.`);
       }
       setFormMode(null); setEditTarget(null);
       await fetchAll();
-    } catch(err:any){ showToast(err.message,"error"); }
-    finally { setSaving(false); }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Erreur serveur", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/fournisseurs/${deleteTarget.id}`,{method:"DELETE"});
-      if (!res.ok){const e=await res.json();throw new Error(e.error||"Erreur");}
-      showToast(`Fournisseur "${deleteTarget.nom}" supprimé.`,"error");
+      const res = await fetch(`/api/fournisseurs/${deleteTarget.id}`, { method:"DELETE" });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Erreur"); }
+      showToast(`Fournisseur "${deleteTarget.nom}" supprimé.`, "error");
       setDeleteTarget(null);
-      if (detailF?.id===deleteTarget.id) setDetailF(null);
+      if (detailF?.id === deleteTarget.id) setDetailF(null);
       await fetchAll();
-    } catch(err:any){ showToast(err.message,"error"); }
-    finally { setDeleting(false); }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Erreur réseau", "error");
+    } finally {
+      setDeleting(false);
+    }
   };
 
-  const openEdit = (f:Fournisseur) => { setEditTarget(f); setFormMode("edit"); setDetailF(null); };
+  const openEdit = (f: Fournisseur) => { setEditTarget(f); setFormMode("edit"); setDetailF(null); };
 
   const formInitial: FormData = editTarget ? {
-    nom:         editTarget.nom,
-    email:       editTarget.email       || "",
-    telephone:   editTarget.telephone   || "",
-    adresse:     editTarget.adresse     || "",
-    type:        editTarget.type        || "",
+    nom:          editTarget.nom,
+    email:        editTarget.email        || "",
+    telephone:    editTarget.telephone    || "",
+    adresse:      editTarget.adresse      || "",
+    type:         editTarget.type         || "",
     contratDebut: editTarget.contratDebut ? editTarget.contratDebut.split("T")[0] : "",
     contratFin:   editTarget.contratFin   ? editTarget.contratFin.split("T")[0]   : "",
   } : { nom:"", email:"", telephone:"", adresse:"", type:"", contratDebut:"", contratFin:"" };
 
   // ── Global stats ───────────────────────────────────────────────────────────
+  // ✅ FIX : grâce à normalizeFournisseur(), f.stats est toujours défini ici.
   const globalStats = useMemo(() => ({
     total:            fournisseurs.length,
-    totalBiens:       fournisseurs.reduce((s,f)=>s+f.stats.totalBiens,0),
-    totalMaint:       fournisseurs.reduce((s,f)=>s+f.stats.totalMaintenances,0),
-    coutTotal:        fournisseurs.reduce((s,f)=>s+f.stats.coutMaintenances,0),
-    contratsExpirant: fournisseurs.filter(f=>f.stats.contratBientotFin||f.stats.contratExpire).length,
-  }),[fournisseurs]);
+    totalBiens:       fournisseurs.reduce((s, f) => s + f.stats.totalBiens,        0),
+    totalMaint:       fournisseurs.reduce((s, f) => s + f.stats.totalMaintenances, 0),
+    coutTotal:        fournisseurs.reduce((s, f) => s + f.stats.coutMaintenances,  0),
+    contratsExpirant: fournisseurs.filter(f => f.stats.contratBientotFin || f.stats.contratExpire).length,
+  }), [fournisseurs]);
 
   // ── Export CSV ─────────────────────────────────────────────────────────────
   const handleExport = () => {
@@ -680,8 +705,8 @@ export default function FournisseursPage() {
       f.stats.totalBiens, f.stats.totalMaintenances, f.stats.coutMaintenances,
       f.contratDebut?.split("T")[0]||"", f.contratFin?.split("T")[0]||""
     ]);
-    const csv  = [headers,...rows].map(r=>r.join(";")).join("\n");
-    const blob = new Blob(["\uFEFF"+csv],{type:"text/csv;charset=utf-8;"});
+    const csv  = [headers,...rows].map(r => r.join(";")).join("\n");
+    const blob = new Blob(["\uFEFF"+csv], { type:"text/csv;charset=utf-8;" });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement("a"); a.href=url; a.download="fournisseurs.csv"; a.click();
     URL.revokeObjectURL(url);
@@ -704,7 +729,7 @@ export default function FournisseursPage() {
       {/* ── Header ── */}
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-1">Partenaires & Prestataires</p>
+          <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-1">Partenaires &amp; Prestataires</p>
           <h2 className="text-2xl font-bold text-white leading-none">Fournisseurs</h2>
           <p className="text-sm text-slate-500 mt-1.5">
             {loading ? (
@@ -749,10 +774,10 @@ export default function FournisseursPage() {
       {/* ── Global stats ── */}
       <div className="grid grid-cols-4 gap-3">
         {[
-          { label:"Fournisseurs",    value:globalStats.total,                     accent:"#38bdf8" },
-          { label:"Biens fournis",   value:globalStats.totalBiens,                accent:"#10b981" },
-          { label:"Maintenances",    value:globalStats.totalMaint,                accent:"#f97316" },
-          { label:"Coût maintenances", value:fmt(globalStats.coutTotal),          accent:"#8b5cf6" },
+          { label:"Fournisseurs",     value:globalStats.total,              accent:"#38bdf8" },
+          { label:"Biens fournis",    value:globalStats.totalBiens,         accent:"#10b981" },
+          { label:"Maintenances",     value:globalStats.totalMaint,         accent:"#f97316" },
+          { label:"Coût maintenances",value:fmt(globalStats.coutTotal),     accent:"#8b5cf6" },
         ].map(s => (
           <div key={s.label} className="rounded-2xl px-5 py-4" style={{ background:"#0f1824", border:"1px solid rgba(255,255,255,0.06)" }}>
             <p className="text-[22px] font-bold leading-none" style={{ color:s.accent }}>{loading?"—":s.value}</p>
@@ -784,10 +809,10 @@ export default function FournisseursPage() {
           <option value="coutMaintenances">Trier par coût</option>
           <option value="contratFin">Trier par contrat</option>
         </select>
-        <button onClick={() => setSortDir(d=>d==="asc"?"desc":"asc")}
+        <button onClick={() => setSortDir(d => d==="asc"?"desc":"asc")}
           className="p-1.5 rounded-lg text-slate-500 hover:text-white transition-colors"
           style={{ background:"rgba(255,255,255,0.05)" }}>
-          {sortDir==="asc"?<Ico.SortA />:<Ico.SortD />}
+          {sortDir==="asc" ? <Ico.SortA /> : <Ico.SortD />}
         </button>
         <div className="flex-1" />
         {!loading && <span className="text-[11px] text-slate-600 font-medium">{filtered.length} résultat{filtered.length>1?"s":""}</span>}
@@ -795,7 +820,7 @@ export default function FournisseursPage() {
           {(["grid","table"] as ViewMode[]).map(m => (
             <button key={m} onClick={() => setViewMode(m)} className="p-1.5 rounded-md transition-all"
               style={{ background:viewMode===m?"rgba(14,165,233,0.2)":"transparent", color:viewMode===m?"#38bdf8":"#475569" }}>
-              {m==="grid"?<Ico.Grid />:<Ico.Table />}
+              {m==="grid" ? <Ico.Grid /> : <Ico.Table />}
             </button>
           ))}
         </div>
@@ -810,16 +835,14 @@ export default function FournisseursPage() {
         ) : (
           <div className="grid grid-cols-3 gap-4">
             {filtered.map((f, idx) => {
-              const color  = colorFor(idx);
-              const meta   = getFournMeta(f.type);
+              const color   = colorFor(idx);
+              const meta    = getFournMeta(f.type);
               const expSoon = f.stats.contratBientotFin || f.stats.contratExpire;
               return (
                 <div key={f.id}
                   className="group rounded-2xl p-5 flex flex-col gap-4 cursor-pointer transition-all duration-200 hover:scale-[1.01]"
                   style={{ background:"#0f1824", border:`1px solid ${expSoon?"rgba(245,158,11,0.2)":"rgba(255,255,255,0.06)"}` }}
                   onClick={() => setDetailF(f)}>
-
-                  {/* Top */}
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-base font-bold shrink-0"
@@ -841,13 +864,11 @@ export default function FournisseursPage() {
                       <button onClick={() => setDeleteTarget(f)} className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-400/10 transition-all"><Ico.Trash /></button>
                     </div>
                   </div>
-
-                  {/* Stats */}
                   <div className="grid grid-cols-3 gap-2">
                     {[
-                      { label:"Biens",  value:f.stats.totalBiens,        accent:color    },
-                      { label:"Maint.", value:f.stats.totalMaintenances, accent:"#f97316" },
-                      { label:"Actives",value:f.stats.maintenancesActives,accent:"#38bdf8" },
+                      { label:"Biens",   value:f.stats.totalBiens,          accent:color     },
+                      { label:"Maint.",  value:f.stats.totalMaintenances,   accent:"#f97316" },
+                      { label:"Actives", value:f.stats.maintenancesActives, accent:"#38bdf8" },
                     ].map(s => (
                       <div key={s.label} className="rounded-xl px-2 py-2.5 text-center"
                         style={{ background:"rgba(255,255,255,0.03)", border:"1px solid rgba(255,255,255,0.05)" }}>
@@ -856,8 +877,6 @@ export default function FournisseursPage() {
                       </div>
                     ))}
                   </div>
-
-                  {/* Contact + coût */}
                   <div className="space-y-1.5">
                     {f.email && (
                       <div className="flex items-center gap-2">
@@ -878,8 +897,6 @@ export default function FournisseursPage() {
                       </div>
                     )}
                   </div>
-
-                  {/* Contrat */}
                   <div className="flex items-center justify-between pt-2" style={{ borderTop:"1px solid rgba(255,255,255,0.05)" }}>
                     {f.contratFin ? (
                       <div>
@@ -918,7 +935,7 @@ export default function FournisseursPage() {
                     <tr key={i} style={{ borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
                       {Array.from({length:8}).map((_,j) => (
                         <td key={j} className="px-4 py-4">
-                          <div className="h-3 rounded-lg" style={{ width:j===0?"60%":"45%", background:"rgba(255,255,255,0.04)", animation:`pulse 1.5s ease-in-out ${i*0.1}s infinite` }} />
+                          <div className="h-3 rounded-lg" style={{ width:j===0?"60%":"45%", background:"rgba(255,255,255,0.04)" }} />
                         </td>
                       ))}
                     </tr>
@@ -926,8 +943,8 @@ export default function FournisseursPage() {
                 ) : filtered.length===0 ? (
                   <tr><td colSpan={8} className="px-4 py-16 text-center text-sm text-slate-600">Aucun fournisseur ne correspond.</td></tr>
                 ) : filtered.map((f, idx) => {
-                  const color  = colorFor(idx);
-                  const meta   = getFournMeta(f.type);
+                  const color   = colorFor(idx);
+                  const meta    = getFournMeta(f.type);
                   const expSoon = f.stats.contratBientotFin || f.stats.contratExpire;
                   return (
                     <tr key={f.id}

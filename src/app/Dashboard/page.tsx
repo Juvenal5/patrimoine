@@ -59,13 +59,13 @@ interface StatsApiResponse {
 }
 
 interface DeptApiItem {
-  id:          string;
-  nom:         string;
-  description: string | null;
-  totalBiens:  number;
-  totalUsers:  number;
+  id:           string;
+  nom:          string;
+  description:  string | null;
+  totalBiens:   number;
+  totalUsers:   number;
   valeurTotale: number;
-  etatCounts:  Record<string, number>;
+  etatCounts:   Record<string, number>;
 }
 
 interface AlerteApiItem {
@@ -140,9 +140,8 @@ function mapDepts(api: DeptApiItem[]): DeptItem[] {
   }));
 }
 
-/** Maps API niveau → UI severity */
 function mapNiveau(niveau: AlerteApiItem["niveau"]): AlerteItem["severity"] {
-  if (niveau === "critique")     return "high";
+  if (niveau === "critique")      return "high";
   if (niveau === "avertissement") return "medium";
   return "low";
 }
@@ -163,14 +162,13 @@ function mapChart(api: ChartApiResponse, tab: string): ChartData {
   const series = api.series ?? [];
   if (series.length === 0) return { labels: [], values: [], highlights: [] };
 
-  const labels     = series.map((s) => s.label);
-  const values     = series.map((s) => s.count);
+  const labels = series.map((s) => s.label);
+  const values = series.map((s) => s.count);
 
-  // Highlight the most recent non-zero bar
-  const now        = new Date();
-  let   hlIndex    = -1;
+  const now      = new Date();
+  let   hlIndex  = -1;
   if (tab === "mois") {
-    hlIndex = now.getMonth(); // 0-based
+    hlIndex = now.getMonth();
   } else if (tab === "semaine") {
     const lastNonZero = values.reduceRight((acc, v, i) => (acc === -1 && v > 0 ? i : acc), -1);
     hlIndex = lastNonZero;
@@ -190,13 +188,13 @@ function mapBiens(api: BienApiItem[]): Asset[] {
     id:         b.codeInventaire,
     _id:        b.id,
     name:       b.nom,
-    category:   b.categorie   ?? "Autre",
-    department: b.departement?.nom ?? "—",
-    status:     b.etat        ?? "inactif",
+    category:   b.categorie         ?? "Autre",
+    department: b.departement?.nom  ?? "—",
+    status:     b.etat              ?? "inactif",
     date:       b.dateAcquisition
       ? new Date(b.dateAcquisition).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })
       : "—",
-    value:      b.valeurAchat ?? 0,
+    value: b.valeurAchat ?? 0,
   }));
 }
 
@@ -333,9 +331,6 @@ function BarChart({ data }: { data: ChartData | null }) {
 
   return (
     <div className="flex gap-3">
-      {/* ✅ FIX: utiliser l'index comme clé au lieu de la valeur n
-          Les valeurs arrondies peuvent être identiques (ex: maxVal petit →
-          Math.round(max*0.4) === Math.round(max*0.2)), ce qui causait des clés dupliquées. */}
       <div className="flex flex-col justify-between pb-6 text-right">
         {[maxVal, Math.round(maxVal * 0.7), Math.round(maxVal * 0.4), Math.round(maxVal * 0.2), 0].map((n, i) => (
           <span key={i} className="text-[9px] text-slate-700 leading-none w-4">{n}</span>
@@ -358,11 +353,11 @@ function BarChart({ data }: { data: ChartData | null }) {
                   </div>
                 )}
                 <div className="w-full rounded-t-md" style={{
-                  height:           `${heightPct}%`,
-                  minHeight:        v > 0 ? 3 : 0,
-                  transition:       "height 0.6s cubic-bezier(0.34,1.56,0.64,1)",
-                  transitionDelay:  `${i * 35}ms`,
-                  background:       highlight
+                  height:          `${heightPct}%`,
+                  minHeight:       v > 0 ? 3 : 0,
+                  transition:      "height 0.6s cubic-bezier(0.34,1.56,0.64,1)",
+                  transitionDelay: `${i * 35}ms`,
+                  background:      highlight
                     ? "linear-gradient(to top, #0369a1, #38bdf8)"
                     : tooltip === i
                       ? "rgba(14,165,233,0.28)"
@@ -490,7 +485,7 @@ function AddModal({ depts, onClose, onAdd }: {
             </div>
           </div>
           <div>
-            <label className="block text-[11px] text-slate-500 mb-1.5">Date d'acquisition</label>
+            <label className="block text-[11px] text-slate-500 mb-1.5">Date d&apos;acquisition</label>
             <input type="date" style={{ ...inputStyle, colorScheme: "dark" }}
               value={form.dateAchat} onChange={set("dateAchat")} />
           </div>
@@ -553,20 +548,17 @@ export default function Dashboard() {
           fetch("/api/alertes"),
         ]);
 
-        // Stats
         if (statsRes.ok) {
           const s: StatsApiResponse = await statsRes.json();
           setRawStats(s);
           setStats(mapStats(s));
         }
 
-        // Depts
         if (deptsRes.ok) {
           const d: DeptApiItem[] = await deptsRes.json();
           setDepts(mapDepts(Array.isArray(d) ? d : []));
         }
 
-        // Alertes
         if (alertesRes.ok) {
           const a: { alertes: AlerteApiItem[] } = await alertesRes.json();
           setAlertes(mapAlertes(a.alertes ?? []));
@@ -581,14 +573,34 @@ export default function Dashboard() {
   }, []);
 
   // ── Chart: reload on tab change ───────────────────────────────────────────
+  // ✅ FIX : Promise.reject(r.status) ne rejetait qu'un nombre (ex: 500),
+  //    sans aucune info sur la cause réelle. On lit maintenant le corps de la
+  //    réponse pour afficher le vrai message d'erreur serveur dans la console.
   useEffect(() => {
     setChartData(null);
     const period = tab === "semaine" ? "semaine" : tab === "annee" ? "annee" : "mois";
+
     fetch(`/api/Dashboard/acquisitions?period=${period}`)
-      .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-      .then((d: ChartApiResponse) => setChartData(mapChart(d, tab)))
-      .catch((err) => {
-        console.error("Chart fetch error:", err);
+      .then(async (r) => {
+        if (!r.ok) {
+          // Lire le corps pour avoir le message d'erreur réel du serveur
+          const body = await r.text().catch(() => "(pas de corps)");
+          throw new Error(`HTTP ${r.status} — ${body}`);
+        }
+        return r.json();
+      })
+      .then((d: ChartApiResponse) => {
+        // Vérifier que la réponse a bien la forme attendue
+        if (!d || !Array.isArray(d.series)) {
+          console.warn("acquisitions API : forme inattendue", d);
+          setChartData({ labels: [], values: [], highlights: [] });
+          return;
+        }
+        setChartData(mapChart(d, tab));
+      })
+      .catch((err: Error) => {
+        // Affiche maintenant le vrai message d'erreur serveur
+        console.error("Chart fetch error:", err.message);
         setChartData({ labels: [], values: [], highlights: [] });
       });
   }, [tab]);
@@ -606,7 +618,7 @@ export default function Dashboard() {
         if (activeFilter !== "all") params.set("etat",   activeFilter);
         if (search.trim())          params.set("search", search.trim());
 
-        const res  = await fetch(`/api/biens?${params}`, { signal: controller.signal });
+        const res = await fetch(`/api/biens?${params}`, { signal: controller.signal });
         if (!res.ok) return;
         const data: BienApiItem[] = await res.json();
         const arr = Array.isArray(data) ? data : [];
@@ -649,10 +661,8 @@ export default function Dashboard() {
       throw new Error(err.error ?? "Erreur serveur");
     }
     const newBien: BienApiItem = await res.json();
-    // Optimistic prepend
     setAssets((prev) => [mapBiens([newBien])[0], ...prev]);
     setTotalBiens((n) => n + 1);
-    // Refresh stats silently
     fetch("/api/Dashboard/stats")
       .then((r) => r.ok ? r.json() : null)
       .then((s) => { if (s) { setRawStats(s); setStats(mapStats(s)); } });
@@ -668,7 +678,7 @@ export default function Dashboard() {
   const maintCount   = rawStats?.maintenance ?? stats.find((s) => s.key === "maintenance")?.value ?? 0;
   const inactifCount = rawStats?.inactif     ?? stats.find((s) => s.key === "inactif")?.value     ?? 0;
   const totalCount   = rawStats?.total       ?? stats.find((s) => s.key === "all")?.value         ?? 0;
-  const activityRate = totalCount > 0 ? Math.round((activeCount  / totalCount) * 100) : 0;
+  const activityRate = totalCount > 0 ? Math.round((activeCount   / totalCount) * 100) : 0;
   const affectRate   = totalCount > 0 ? Math.round(((totalCount - inactifCount) / totalCount) * 100) : 0;
 
   const SortIcon = ({ k }: { k: string }) => {
@@ -696,7 +706,7 @@ export default function Dashboard() {
           <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mb-1">Aperçu général</p>
           <h2 className="text-2xl font-bold text-white leading-none">Tableau de bord</h2>
           <p className="text-sm text-slate-500 mt-1.5">
-            Vue d'ensemble du patrimoine ·{" "}
+            Vue d&apos;ensemble du patrimoine ·{" "}
             <span className="text-slate-600">{fmtDate} — {fmtTime}</span>
           </p>
         </div>
@@ -826,9 +836,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mt-5 pt-4"
             style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
             {[
-              { val: totalCount,    label: "Total",   color: "#fff"    },
-              { val: activeCount,   label: "Actifs",  color: "#10b981" },
-              { val: maintCount,    label: "Maint.",  color: "#f97316" },
+              { val: totalCount,     label: "Total",   color: "#fff"    },
+              { val: activeCount,    label: "Actifs",  color: "#10b981" },
+              { val: maintCount,     label: "Maint.",  color: "#f97316" },
               { val: alertes.length, label: "Alertes", color: "#ef4444" },
             ].map(({ val, label, color }) => (
               <div key={label} className="text-center">
@@ -886,12 +896,12 @@ export default function Dashboard() {
             <div className="space-y-0.5">
               <div className="grid grid-cols-12 gap-2 px-3 pb-2"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                <ColHeader label="Code"   k="id"         className="col-span-2" />
-                <ColHeader label="Désign." k="name"      className="col-span-3" />
-                <ColHeader label="Dept"   k="department" className="col-span-2" />
-                <ColHeader label="Date"   k="date"       className="col-span-2" />
-                <ColHeader label="Statut" k="status"     className="col-span-1" />
-                <ColHeader label="Valeur" k="value"      className="col-span-2" />
+                <ColHeader label="Code"    k="id"         className="col-span-2" />
+                <ColHeader label="Désign." k="name"       className="col-span-3" />
+                <ColHeader label="Dept"    k="department" className="col-span-2" />
+                <ColHeader label="Date"    k="date"       className="col-span-2" />
+                <ColHeader label="Statut"  k="status"     className="col-span-1" />
+                <ColHeader label="Valeur"  k="value"      className="col-span-2" />
               </div>
 
               {displayed.map((item) => {
@@ -944,7 +954,7 @@ export default function Dashboard() {
           style={{ background: "#0f1824", border: "1px solid rgba(255,255,255,0.06)" }}>
           <div className="flex items-start justify-between mb-5">
             <div>
-              <h3 className="text-sm font-semibold text-white leading-none">Alertes & notifications</h3>
+              <h3 className="text-sm font-semibold text-white leading-none">Alertes &amp; notifications</h3>
               <p className="text-[11px] text-slate-500 mt-1">Éléments nécessitant attention</p>
             </div>
             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
@@ -991,12 +1001,12 @@ export default function Dashboard() {
             <div className="rounded-xl p-3 text-center"
               style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.12)" }}>
               <p className="text-lg font-bold" style={{ color: "#10b981" }}>{activityRate}%</p>
-              <p className="text-[10px] text-slate-600 mt-0.5">Taux d'activité</p>
+              <p className="text-[10px] text-slate-600 mt-0.5">Taux d&apos;activité</p>
             </div>
             <div className="rounded-xl p-3 text-center"
               style={{ background: "rgba(14,165,233,0.07)", border: "1px solid rgba(14,165,233,0.12)" }}>
               <p className="text-lg font-bold" style={{ color: "#38bdf8" }}>{affectRate}%</p>
-              <p className="text-[10px] text-slate-600 mt-0.5">Taux d'affectation</p>
+              <p className="text-[10px] text-slate-600 mt-0.5">Taux d&apos;affectation</p>
             </div>
           </div>
         </div>
@@ -1008,7 +1018,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
 
 
 
