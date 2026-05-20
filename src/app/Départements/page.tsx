@@ -958,21 +958,3 @@ export default function DepartementsPage() {
     </div>
   );
 }
-
-
-
-
-
-// "use client";
-
-// export default function Departements() {
-//   return (
-//     <div className="min-h-screen flex items-center justify-center" style={{ background: "#070d16" }}>
-//       <div className="text-center space-y-3">
-//         <div className="text-5xl">🏢</div>
-//         <h1 className="text-white text-2xl font-bold">Gestion des départements</h1>
-//         <p className="text-slate-500 text-sm">Page en cours de développement</p>
-//       </div>
-//     </div>
-//   );
-// }
