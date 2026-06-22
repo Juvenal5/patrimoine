@@ -5,13 +5,17 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+const SESSION_SHORT = 8 * 60 * 60;        // 8 heures  (session navigateur)
+const SESSION_LONG  = 30 * 24 * 60 * 60;  // 30 jours  (se souvenir de moi)
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
       name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Mot de passe", type: "password" },
+        email:      { label: "Email",             type: "email"    },
+        password:   { label: "Mot de passe",      type: "password" },
+        rememberMe: { label: "Se souvenir de moi", type: "text"   },
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
@@ -47,13 +51,15 @@ export const authOptions: NextAuthOptions = {
         });
 
         return {
-          id: user.id,
-          email: user.email,
-          nom: user.nom,
-          prenom: user.prenom,
-          role: user.role,
-          actif: user.actif,
-          departement: user.departement?.nom ?? null,
+          id:           user.id,
+          email:        user.email,
+          nom:          user.nom,
+          prenom:       user.prenom,
+          role:         user.role,
+          actif:        user.actif,
+          departement:  user.departement?.nom ?? null,
+          // On transmet le choix "se souvenir" dans l'objet user
+          rememberMe:   credentials.rememberMe === "true",
         };
       },
     }),
@@ -62,23 +68,28 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
-        token.nom = (user as any).nom;
-        token.prenom = (user as any).prenom;
-        token.role = (user as any).role;
-        token.actif = (user as any).actif;
+        token.id          = user.id;
+        token.nom         = (user as any).nom;
+        token.prenom      = (user as any).prenom;
+        token.role        = (user as any).role;
+        token.actif       = (user as any).actif;
         token.departement = (user as any).departement;
+        // Stocker la durée choisie dans le token JWT
+        token.maxAge      = (user as any).rememberMe ? SESSION_LONG : SESSION_SHORT;
       }
       return token;
     },
+
     async session({ session, token }) {
       if (token) {
-        (session.user as any).id = token.id;
-        (session.user as any).nom = token.nom;
-        (session.user as any).prenom = token.prenom;
-        (session.user as any).role = token.role;
-        (session.user as any).actif = token.actif;
+        (session.user as any).id          = token.id;
+        (session.user as any).nom         = token.nom;
+        (session.user as any).prenom      = token.prenom;
+        (session.user as any).role        = token.role;
+        (session.user as any).actif       = token.actif;
         (session.user as any).departement = token.departement;
+        // Exposer la durée dans la session (optionnel, utile côté client)
+        (session as any).maxAge           = token.maxAge;
       }
       return session;
     },
@@ -86,16 +97,141 @@ export const authOptions: NextAuthOptions = {
 
   pages: {
     signIn: "/auth",
-    error: "/auth",
+    error:  "/auth",
   },
 
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 8 heures
+    // Durée maximale possible — le JWT callback affine par utilisateur
+    maxAge: SESSION_LONG,
+  },
+
+  jwt: {
+    // Le cookie JWT expire selon le choix de l'utilisateur
+    maxAge: SESSION_LONG,
+  },
+
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-next-auth.session-token"
+        : "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path:     "/",
+        secure:   process.env.NODE_ENV === "production",
+        // maxAge non fixé ici → géré dynamiquement via le token JWT
+      },
+    },
   },
 
   secret: process.env.NEXTAUTH_SECRET,
 };
+
+
+
+
+
+
+// import { NextAuthOptions } from "next-auth";
+// import CredentialsProvider from "next-auth/providers/credentials";
+// import { PrismaClient } from "@prisma/client";
+// import bcrypt from "bcryptjs";
+
+// const prisma = new PrismaClient();
+
+// export const authOptions: NextAuthOptions = {
+//   providers: [
+//     CredentialsProvider({
+//       name: "Credentials",
+//       credentials: {
+//         email: { label: "Email", type: "email" },
+//         password: { label: "Mot de passe", type: "password" },
+//       },
+//       async authorize(credentials) {
+//         if (!credentials?.email || !credentials?.password) {
+//           throw new Error("Email et mot de passe requis");
+//         }
+
+//         const user = await prisma.user.findUnique({
+//           where: { email: credentials.email },
+//           include: { departement: { select: { nom: true } } },
+//         });
+
+//         if (!user) {
+//           throw new Error("Aucun compte associé à cet e-mail");
+//         }
+
+//         if (!user.actif) {
+//           throw new Error("Ce compte a été désactivé");
+//         }
+
+//         const passwordOk = await bcrypt.compare(
+//           credentials.password,
+//           user.password
+//         );
+
+//         if (!passwordOk) {
+//           throw new Error("Mot de passe incorrect");
+//         }
+
+//         // Marquer updatedAt pour le statut en ligne
+//         await prisma.user.update({
+//           where: { id: user.id },
+//           data: { updatedAt: new Date() },
+//         });
+
+//         return {
+//           id: user.id,
+//           email: user.email,
+//           nom: user.nom,
+//           prenom: user.prenom,
+//           role: user.role,
+//           actif: user.actif,
+//           departement: user.departement?.nom ?? null,
+//         };
+//       },
+//     }),
+//   ],
+
+//   callbacks: {
+//     async jwt({ token, user }) {
+//       if (user) {
+//         token.id = user.id;
+//         token.nom = (user as any).nom;
+//         token.prenom = (user as any).prenom;
+//         token.role = (user as any).role;
+//         token.actif = (user as any).actif;
+//         token.departement = (user as any).departement;
+//       }
+//       return token;
+//     },
+//     async session({ session, token }) {
+//       if (token) {
+//         (session.user as any).id = token.id;
+//         (session.user as any).nom = token.nom;
+//         (session.user as any).prenom = token.prenom;
+//         (session.user as any).role = token.role;
+//         (session.user as any).actif = token.actif;
+//         (session.user as any).departement = token.departement;
+//       }
+//       return session;
+//     },
+//   },
+
+//   pages: {
+//     signIn: "/auth",
+//     error: "/auth",
+//   },
+
+//   session: {
+//     strategy: "jwt",
+//     maxAge: 8 * 60 * 60, // 8 heures
+//   },
+
+//   secret: process.env.NEXTAUTH_SECRET,
+// };
 
 
 
