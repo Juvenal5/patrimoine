@@ -1,9 +1,9 @@
 // src/app/api/Utilisateurs/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/app/lib/prisma";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 // ── GET /api/Utilisateurs ─────────────────────────────────────────────────────
 // Paramètres query : search, role, actif, departementId, sortKey, sortDir, limit

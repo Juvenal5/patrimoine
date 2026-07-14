@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import prisma from "@/app/lib/prisma";
 import { getServerSession } from "next-auth";
 import { getToken } from "next-auth/jwt";
 import { authOptions } from "../../../lib/authOptions"; // adaptez le chemin
 
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 
 // Récupère l'id utilisateur depuis la session OU le token JWT brut
 async function getUserId(req: NextRequest): Promise<string | null> {

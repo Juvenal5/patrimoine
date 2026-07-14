@@ -95,29 +95,3 @@ export async function POST(req: NextRequest) {
   }
 }
 
-
-
-
-
-
-// src/app/api/departements/route.ts
-// import { NextResponse } from "next/server";
-// import prisma from "@/app/lib/prisma";
-
-// export async function GET() {
-//   try {
-//     const departements = await prisma.departement.findMany({
-//       orderBy: { nom: "asc" },
-//       select: {
-//         id:          true,
-//         nom:         true,
-//         description: true,
-//         _count:      { select: { biens: true, users: true } },
-//       },
-//     });
-//     return NextResponse.json(departements);
-//   } catch (err: any) {
-//     console.error("[GET /api/departements] Error", err);
-//     return NextResponse.json({ error: err.message }, { status: 500 });
-//   }
-// }
