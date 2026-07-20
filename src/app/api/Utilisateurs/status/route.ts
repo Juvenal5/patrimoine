@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/app/lib/prisma";
+import prisma from "@/app/lib/prisma"; // ✅ client Prisma partagé (singleton) — ne PAS faire `new PrismaClient()` ici
 import { getServerSession } from "next-auth";
 import { getToken } from "next-auth/jwt";
 import { authOptions } from "../../../lib/authOptions"; // adaptez le chemin
-
-// const prisma = new PrismaClient();
 
 // Récupère l'id utilisateur depuis la session OU le token JWT brut
 async function getUserId(req: NextRequest): Promise<string | null> {
@@ -82,6 +80,96 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
   }
 }
+
+
+
+
+
+
+// import { NextRequest, NextResponse } from "next/server";
+// import { PrismaClient } from "@/app/lib/prisma";
+// import { getServerSession } from "next-auth";
+// import { getToken } from "next-auth/jwt";
+// import { authOptions } from "../../../lib/authOptions"; // adaptez le chemin
+
+// const prisma = new PrismaClient();
+
+// // Récupère l'id utilisateur depuis la session OU le token JWT brut
+// async function getUserId(req: NextRequest): Promise<string | null> {
+//   // Méthode 1 : session serveur (nécessite NEXTAUTH_SECRET)
+//   try {
+//     const session = await getServerSession(authOptions);
+//     const id = (session?.user as any)?.id;
+//     if (id) return id;
+//   } catch {}
+
+//   // Méthode 2 : lecture directe du JWT (plus fiable en cas d'erreur de session)
+//   try {
+//     const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+//     const id = (token as any)?.id;
+//     if (id) return id;
+//   } catch {}
+
+//   return null;
+// }
+
+// // POST — heartbeat
+// export async function POST(req: NextRequest) {
+//   try {
+//     const userId = await getUserId(req);
+
+//     if (!userId) {
+//       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+//     }
+
+//     await prisma.user.update({
+//       where: { id: userId },
+//       data: { updatedAt: new Date() },
+//     });
+
+//     return NextResponse.json({ ok: true });
+//   } catch (error) {
+//     console.error("[STATUS POST ERROR]", error);
+//     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+//   }
+// }
+
+// // GET — liste des utilisateurs avec statut en ligne
+// export async function GET(req: NextRequest) {
+//   try {
+//     const userId = await getUserId(req);
+
+//     if (!userId) {
+//       return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+//     }
+
+//     const users = await prisma.user.findMany({
+//       select: {
+//         id: true,
+//         nom: true,
+//         prenom: true,
+//         email: true,
+//         role: true,
+//         actif: true,
+//         updatedAt: true,
+//         createdAt: true,
+//         departement: { select: { nom: true } },
+//       },
+//       orderBy: { updatedAt: "desc" },
+//     });
+
+//     const now = new Date();
+//     const usersWithStatus = users.map((u) => ({
+//       ...u,
+//       enLigne: now.getTime() - new Date(u.updatedAt).getTime() < 2 * 60 * 1000,
+//     }));
+
+//     return NextResponse.json(usersWithStatus);
+//   } catch (error) {
+//     console.error("[STATUS GET ERROR]", error);
+//     return NextResponse.json({ error: "Erreur serveur" }, { status: 500 });
+//   }
+// }
 
 
 
