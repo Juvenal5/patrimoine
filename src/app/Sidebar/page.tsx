@@ -12,6 +12,7 @@ export type PageId =
   | "Départements"
   | "Fournisseurs"
   | "Historique"
+  | "Rapport"
   | "Utilisateurs";
 
 interface NavItem {
@@ -122,6 +123,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: "Départements", icon: <Icons.Building /> },
       { label: "Fournisseurs", icon: <Icons.Truck />   },
       { label: "Historique",   icon: <Icons.Clock />   },
+      { label: "Rapport",   icon: <Icons.Clock />   },
       { label: "Utilisateurs", icon: <Icons.Users />   },
     ],
   },

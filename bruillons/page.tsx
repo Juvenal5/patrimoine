@@ -8,21 +8,20 @@ datasource db {
 }
 
 model User {
-  id              String          @id @default(uuid())
-  departementId   String?
-  nom             String
-  prenom          String
-  email           String          @unique
-  telephone       String?
-  password        String
-  role            Role            @default(USER)
-  actif           Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  affectations    Affectation[]
-  historiques     Historique[]
-  rapportsGeneres RapportGenere[]
-  departement     Departement?    @relation(fields: [departementId], references: [id])
+  id            String        @id @default(uuid())
+  departementId String?
+  nom           String
+  prenom        String
+  email         String        @unique
+  telephone     String?
+  password      String
+  role          Role          @default(USER)
+  actif         Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  affectations  Affectation[]
+  historiques   Historique[]
+  departement   Departement?  @relation(fields: [departementId], references: [id])
 }
 
 model Departement {
@@ -117,22 +116,6 @@ model Affectation {
   createdAt           DateTime  @default(now())
   bien                Bien      @relation(fields: [bienId], references: [id])
   user                User      @relation(fields: [userId], references: [id])
-}
-
-model RapportGenere {
-  id            String    @id @default(uuid())
-  userId        String
-  nom           String
-  type          String
-  format        String
-  departementId String?
-  categorie     String?
-  statut        String?
-  periodeDebut  DateTime?
-  periodeFin    DateTime?
-  contenu       Bytes?
-  createdAt     DateTime  @default(now())
-  user          User      @relation(fields: [userId], references: [id])
 }
 
 enum Role {

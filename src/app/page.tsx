@@ -16,6 +16,7 @@ import Maintenance    from './Maintenance/page';
 import Départements   from './Départements/page';
 import Fournisseurs   from './Fournisseurs/page';
 import Historique     from './Historique/page';
+import Rapport        from './Rapport/page';
 import Utilisateurs   from './Utilisateurs/page';
 
 // ── Types
@@ -27,6 +28,7 @@ export type PageId =
   | 'Départements'
   | 'Fournisseurs'
   | 'Historique'
+  | 'Rapport'
   | 'Utilisateurs';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,6 +74,7 @@ export default function RootPage() {
         {activePage === 'Départements'    && <Départements />}
         {activePage === 'Fournisseurs'    && <Fournisseurs />}
         {activePage === 'Historique'      && <Historique />}
+        {activePage === 'Rapport'      && <Rapport />}
         {activePage === 'Utilisateurs'    && <Utilisateurs />}
       </main>
 

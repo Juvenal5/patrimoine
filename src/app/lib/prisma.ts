@@ -1,36 +1,65 @@
 import { PrismaClient } from "@prisma/client";
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  Singleton PrismaClient
-//
-//  En développement, Next.js / Turbopack recharge les modules à chaque
-//  modification (HMR). Sans ce pattern, chaque rechargement instancie un
-//  nouveau PrismaClient, épuisant rapidement le pool de connexions (limite 5
-//  par défaut sur Neon / PlanetScale / Supabase).
-//
-//  En production, les modules ne sont chargés qu'une seule fois, donc un
-//  simple `export default new PrismaClient()` serait suffisant — mais ce
-//  pattern fonctionne dans les deux cas.
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Singleton Prisma ───────────────────────────────────────────────────────
+// Évite l'épuisement du pool de connexions en réutilisant la même instance
+// entre les rechargements à chaud en développement (Next.js App Router).
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+declare global {
+  // eslint-disable-next-line no-var
+  var prisma: PrismaClient | undefined;
+}
 
-const prisma =
-  globalForPrisma.prisma ??
+export const prisma =
+  global.prisma ||
   new PrismaClient({
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["warn", "error"]
-        : ["error"],
+    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  global.prisma = prisma;
 }
 
 export default prisma;
+
+
+
+
+
+
+
+// import { PrismaClient } from "@prisma/client";
+
+// // ─────────────────────────────────────────────────────────────────────────────
+// //  Singleton PrismaClient
+// //
+// //  En développement, Next.js / Turbopack recharge les modules à chaque
+// //  modification (HMR). Sans ce pattern, chaque rechargement instancie un
+// //  nouveau PrismaClient, épuisant rapidement le pool de connexions (limite 5
+// //  par défaut sur Neon / PlanetScale / Supabase).
+// //
+// //  En production, les modules ne sont chargés qu'une seule fois, donc un
+// //  simple `export default new PrismaClient()` serait suffisant — mais ce
+// //  pattern fonctionne dans les deux cas.
+// // ─────────────────────────────────────────────────────────────────────────────
+
+// const globalForPrisma = globalThis as unknown as {
+//   prisma: PrismaClient | undefined;
+// };
+
+// const prisma =
+//   globalForPrisma.prisma ??
+//   new PrismaClient({
+//     log:
+//       process.env.NODE_ENV === "development"
+//         ? ["warn", "error"]
+//         : ["error"],
+//   });
+
+// if (process.env.NODE_ENV !== "production") {
+//   globalForPrisma.prisma = prisma;
+// }
+
+// export default prisma;
 
 
 
